@@ -12,41 +12,64 @@ permissions:
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: tummoc-app
+  ECR_REGISTRY: 486408064722.dkr.ecr.us-east-1.amazonaws.com
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
 
-    - name: Checkout
+    # Checkout code
+    - name: Checkout Repository
       uses: actions/checkout@v3
 
+    # Configure AWS credentials using OIDC
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-    - name: Verify AWS Login
+    # Verify login
+    - name: Verify AWS Identity
       run: aws sts get-caller-identity
 
-    - name: Login to ECR
+    # Generate image tag using commit SHA
+    - name: Set Image Tag
+      run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+    # Login to ECR
+    - name: Login to Amazon ECR
       run: |
         aws ecr get-login-password --region $AWS_REGION | \
         docker login --username AWS \
-        --password-stdin 486408064722.dkr.ecr.us-east-1.amazonaws.com
+        --password-stdin $ECR_REGISTRY
 
+    # Build Docker image
     - name: Build Docker Image
       run: |
-        docker build -t $ECR_REPOSITORY:latest -f docker/Dockerfile .
+        docker build \
+        -t $ECR_REPOSITORY:$IMAGE_TAG \
+        -f docker/Dockerfile .
 
-    - name: Tag Image
+    # Tag Docker image for ECR
+    - name: Tag Docker Image
       run: |
-        docker tag $ECR_REPOSITORY:latest \
-        486408064722.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPOSITORY:latest
+        docker tag $ECR_REPOSITORY:$IMAGE_TAG \
+        $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-    - name: Push Image
+    # Push image to ECR
+    - name: Push Docker Image
       run: |
         docker push \
-        486408064722.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPOSITORY:latest
+        $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+    # Deploy to EC2 instances in Auto Scaling Group using SSM
+    - name: Deploy to EC2 via SSM
+      run: |
+        aws ssm send-command \
+        --targets "Key=tag:App,Values=tummoc-app" \
+        --document-name "AWS-RunShellScript" \
+        --parameters 'commands=["/home/ec2-user/deploy.sh '${IMAGE_TAG}'"]' \
+        --region $AWS_REGION
