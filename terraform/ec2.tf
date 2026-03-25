@@ -1,13 +1,10 @@
 ##########################################################
-# EC2 Launch Template + Auto Scaling Group for Tummoc App
-# Pulls latest Docker image from ECR and runs container
+# EC2 Launch Template + Auto Scaling Group
+# Used for running Tummoc App container
 ##########################################################
 
-# -------------------------------
-# Variables
-# -------------------------------
 variable "docker_image_tag" {
-  description = "Docker image tag to deploy"
+  description = "Docker image tag"
   default     = "latest"
 }
 
@@ -16,14 +13,16 @@ variable "ecr_repository_uri" {
   default     = "486408064722.dkr.ecr.us-east-1.amazonaws.com/tummoc-app"
 }
 
-# -------------------------------
+##########################################################
 # Launch Template
-# -------------------------------
+##########################################################
+
 resource "aws_launch_template" "tummoc_app" {
+
   name_prefix   = "tummoc-app-"
-  image_id      = "ami-02dfbd4ff395f2a1b"      # Replace with your preferred AMI
+  image_id      = "ami-02dfbd4ff395f2a1b"
   instance_type = "t2.micro"
-  key_name      = "tom"                         # Replace with your EC2 key pair
+  key_name      = "tom"
 
   iam_instance_profile {
     name = aws_iam_instance_profile.tummoc_instance_profile.name
@@ -39,35 +38,96 @@ resource "aws_launch_template" "tummoc_app" {
 #!/bin/bash
 set -e
 
-# Update system and install Docker
+# Update packages
 yum update -y
+
+# Install Docker
 yum install -y docker
-systemctl start docker
 systemctl enable docker
+systemctl start docker
 
-# Login to ECR
-aws ecr get-login-password --region us-east-1 \
-| docker login --username AWS --password-stdin 486408064722.dkr.ecr.us-east-1.amazonaws.com
+# Install SSM agent
+yum install -y amazon-ssm-agent
+systemctl enable amazon-ssm-agent
+systemctl start amazon-ssm-agent
 
-# Pull and run latest Docker image
-docker pull 486408064722.dkr.ecr.us-east-1.amazonaws.com/tummoc-app:latest
+# Install AWS CLI
+yum install -y aws-cli
+
+##################################################
+# Create deployment script
+##################################################
+
+cat <<SCRIPT > /home/ec2-user/deploy.sh
+#!/bin/bash
+
+TAG=\$1
+REGION="us-east-1"
+ECR="486408064722.dkr.ecr.us-east-1.amazonaws.com"
+IMAGE="tummoc-app"
+
+echo "Deploying version: \$TAG"
+
+aws ecr get-login-password --region \$REGION | \
+docker login --username AWS --password-stdin \$ECR
+
+# Save previous image for rollback
+PREVIOUS_IMAGE=\$(docker inspect --format='{{.Config.Image}}' tummoc-app 2>/dev/null || true)
+
+echo "Previous image: \$PREVIOUS_IMAGE"
+
+docker pull \$ECR/\$IMAGE:\$TAG
+
 docker stop tummoc-app || true
 docker rm tummoc-app || true
-docker run -d --name tummoc-app --restart unless-stopped -p 5000:5000 486408064722.dkr.ecr.us-east-1.amazonaws.com/tummoc-app:latest
-EOF
-  )
+
+docker run -d \
+--name tummoc-app \
+-p 5000:5000 \
+--restart unless-stopped \
+\$ECR/\$IMAGE:\$TAG
+
+sleep 10
+
+# Health check
+curl -f http://localhost:5000 || {
+
+echo "Deployment failed. Rolling back..."
+
+docker stop tummoc-app
+docker rm tummoc-app
+
+docker run -d \
+--name tummoc-app \
+-p 5000:5000 \
+--restart unless-stopped \
+\$PREVIOUS_IMAGE
+
 }
 
-# -------------------------------
+SCRIPT
+
+chmod +x /home/ec2-user/deploy.sh
+
+EOF
+  )
+
+}
+
+##########################################################
 # Auto Scaling Group
-# -------------------------------
+##########################################################
+
 resource "aws_autoscaling_group" "tummoc_asg" {
+
   name                = "tummoc-app-asg"
   vpc_zone_identifier = [aws_subnet.tummoc_public_subnet.id]
-  min_size            = 0
-  max_size            = 1
-  desired_capacity    = 0
-  health_check_type   = "EC2"
+
+  min_size         = 1
+  max_size         = 1
+  desired_capacity = 1
+
+  health_check_type         = "EC2"
   health_check_grace_period = 300
 
   launch_template {
@@ -77,7 +137,14 @@ resource "aws_autoscaling_group" "tummoc_asg" {
 
   tag {
     key                 = "Name"
-    value               = "tummoc-app-asg"
+    value               = "tummoc-app-server"
     propagate_at_launch = true
   }
+
+  tag {
+    key                 = "App"
+    value               = "tummoc-app"
+    propagate_at_launch = true
+  }
+
 }

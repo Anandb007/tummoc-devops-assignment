@@ -1,28 +1,37 @@
 #!/bin/bash
-set -e
 
-# Variables
-IMAGE_NAME=tummoc-app
-ECR_URI=486408064722.dkr.ecr.us-east-1.amazonaws.com/$IMAGE_NAME
-
-# Pass version as argument: ./build_push.sh v1
-if [ -z "$1" ]; then
-  echo "Usage: $0 <tag>"
-  exit 1
-fi
 TAG=$1
+REGION="us-east-1"
+ECR="486408064722.dkr.ecr.us-east-1.amazonaws.com"
+IMAGE="tummoc-app"
 
-# Build Docker image
-docker build -t $IMAGE_NAME:$TAG -f docker/Dockerfile .
+aws ecr get-login-password --region $REGION \
+| docker login --username AWS --password-stdin $ECR
 
-# Tag for ECR
-docker tag $IMAGE_NAME:$TAG $ECR_URI:$TAG
+PREVIOUS_IMAGE=$(docker inspect --format='{{.Config.Image}}' tummoc-app || true)
 
-# Login to ECR
-aws ecr get-login-password --region us-east-1 \
-| docker login --username AWS --password-stdin 486408064722.dkr.ecr.us-east-1.amazonaws.com
+docker pull $ECR/$IMAGE:$TAG
 
-# Push to ECR
-docker push $ECR_URI:$TAG
+docker stop tummoc-app || true
+docker rm tummoc-app || true
 
-echo "✅ Image pushed: $ECR_URI:$TAG"
+docker run -d \
+--name tummoc-app \
+-p 5000:5000 \
+--restart unless-stopped \
+$ECR/$IMAGE:$TAG
+
+sleep 10
+
+curl -f http://localhost:5000 || {
+
+docker stop tummoc-app
+docker rm tummoc-app
+
+docker run -d \
+--name tummoc-app \
+-p 5000:5000 \
+--restart unless-stopped \
+$PREVIOUS_IMAGE
+
+}
