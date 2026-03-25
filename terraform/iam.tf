@@ -31,11 +31,6 @@ resource "aws_iam_role_policy_attachment" "s3_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 }
 
-output "ecr_repository_url" {
-
-  value = aws_ecr_repository.tummoc_app_repo.repository_url
-
-}
 
 output "iam_role_name" {
 
