@@ -20,11 +20,50 @@ jobs:
 
     steps:
 
-    # Checkout code
+    ################################################
+    # Checkout Code
+    ################################################
+
     - name: Checkout Repository
       uses: actions/checkout@v3
 
-    # Configure AWS credentials
+
+    ################################################
+    # Setup Python for Lint & Test
+    ################################################
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    - name: Install Dependencies
+      run: |
+        pip install -r app/requirements.txt
+
+
+    ################################################
+    # Lint
+    ################################################
+
+    - name: Run Linter
+      run: |
+        flake8 app/
+
+
+    ################################################
+    # Test
+    ################################################
+
+    - name: Run Tests
+      run: |
+        pytest
+
+
+    ################################################
+    # Configure AWS Credentials
+    ################################################
+
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -33,6 +72,7 @@ jobs:
 
     - name: Verify AWS Identity
       run: aws sts get-caller-identity
+
 
     ################################################
     # Terraform Infrastructure Provisioning
@@ -50,6 +90,7 @@ jobs:
     - name: Terraform Apply
       run: terraform -chdir=terraform apply -auto-approve
 
+
     ################################################
     # Docker Build
     ################################################
@@ -57,24 +98,29 @@ jobs:
     - name: Set Image Tag
       run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
+
     - name: Login to Amazon ECR
       run: |
         aws ecr get-login-password --region $AWS_REGION | \
         docker login --username AWS \
         --password-stdin $ECR_REGISTRY
 
+
     - name: Build Docker Image
       run: |
         docker build -t $ECR_REPOSITORY:$IMAGE_TAG -f docker/Dockerfile .
+
 
     - name: Tag Docker Image
       run: |
         docker tag $ECR_REPOSITORY:$IMAGE_TAG \
         $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
+
     - name: Push Docker Image
       run: |
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
 
     ################################################
     # Deploy to EC2 via SSM
