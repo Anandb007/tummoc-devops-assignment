@@ -1,4 +1,4 @@
-name: tummoc-app-server
+name: CI/CD Pipeline
 
 on:
   push:
@@ -6,40 +6,39 @@ on:
       - master
 
 permissions:
-  id-token: write   # Required for OIDC
+  id-token: write       # Required for OIDC
   contents: read
 
 jobs:
-  build-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      # 1️⃣ Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Configure AWS credentials via OIDC
+      # 2️⃣ Configure AWS credentials via OIDC
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Login to ECR
+      # 3️⃣ Login to ECR
+      - name: Login to Amazon ECR
         run: |
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
           | docker login --username AWS --password-stdin 486408064722.dkr.ecr.us-east-1.amazonaws.com
 
+      # 4️⃣ Build and push Docker image
       - name: Build and push Docker image
         run: |
           IMAGE_NAME=tummoc-app
-          TAG=${GITHUB_SHA}
+          TAG=latest
+          # Build Docker image
           docker build -t $IMAGE_NAME:$TAG -f docker/Dockerfile .
+          # Tag for ECR
           docker tag $IMAGE_NAME:$TAG 486408064722.dkr.ecr.us-east-1.amazonaws.com/$IMAGE_NAME:$TAG
-          docker tag $IMAGE_NAME:$TAG 486408064722.dkr.ecr.us-east-1.amazonaws.com/$IMAGE_NAME:latest
+          # Push to ECR
           docker push 486408064722.dkr.ecr.us-east-1.amazonaws.com/$IMAGE_NAME:$TAG
-          docker push 486408064722.dkr.ecr.us-east-1.amazonaws.com/$IMAGE_NAME:latest
-
-      - name: Terraform apply
-        run: |
-          cd terraform
-          terraform init
-          terraform apply -auto-approve
