@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI-CD
 
 on:
   push:
@@ -6,71 +6,47 @@ on:
       - master
 
 permissions:
-  id-token: write       # Required for OIDC
+  id-token: write
   contents: read
 
 env:
-  IMAGE_NAME: tummoc-app
-  TAG: latest
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: tummoc-app
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
-      - name: Checkout repository
-        uses: actions/checkout@v3
 
-      # 2️⃣ Debug OIDC token (helps identify sts issues)
-      - name: Debug OIDC token
-        run: |
-          echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
-          echo "GITHUB_REF: $GITHUB_REF"
-          echo "Fetching OIDC token..."
-          TOKEN=$(curl -s -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL?aud=sts.amazonaws.com")
-          echo "Raw token: $TOKEN"
-          echo "Decoded JWT payload:"
-          echo $TOKEN | cut -d. -f2 | base64 --decode | jq .
-        shell: bash
+    - name: Checkout
+      uses: actions/checkout@v3
 
-      # 3️⃣ Configure AWS credentials via OIDC
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          audience: https://github.com/Anandb007
-          #audience: sts.amazonaws.com
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ secrets.AWS_REGION }}
 
-      # 4️⃣ Test role assumption
-      - name: Test AWS Role
-        run: aws sts get-caller-identity
+    - name: Verify AWS Login
+      run: aws sts get-caller-identity
 
-      # 5️⃣ Login to Amazon ECR
-      - name: Login to Amazon ECR
-        run: |
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
-          | docker login --username AWS --password-stdin 486408064722.dkr.ecr.us-east-1.amazonaws.com
+    - name: Login to ECR
+      run: |
+        aws ecr get-login-password --region $AWS_REGION | \
+        docker login --username AWS \
+        --password-stdin 486408064722.dkr.ecr.us-east-1.amazonaws.com
 
-      # 6️⃣ Build Docker image
-      - name: Build Docker image
-        run: docker build -t $IMAGE_NAME:$TAG -f docker/Dockerfile .
+    - name: Build Docker Image
+      run: |
+        docker build -t $ECR_REPOSITORY:latest .
 
-      # 7️⃣ Tag Docker image for ECR
-      - name: Tag Docker image
-        run: docker tag $IMAGE_NAME:$TAG 486408064722.dkr.ecr.us-east-1.amazonaws.com/$IMAGE_NAME:$TAG
+    - name: Tag Image
+      run: |
+        docker tag $ECR_REPOSITORY:latest \
+        486408064722.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPOSITORY:latest
 
-      # 8️⃣ Push Docker image to ECR
-      - name: Push Docker image
-        run: docker push 486408064722.dkr.ecr.us-east-1.amazonaws.com/$IMAGE_NAME:$TAG
-
-      # 9️⃣ (Optional) Deploy to ECS Fargate
-      - name: Deploy to ECS
-        if: github.ref == 'refs/heads/master'
-        run: |
-          aws ecs update-service \
-            --cluster tummoc-cluster \
-            --service tummoc-service \
-            --force-new-deployment \
-            --region ${{ secrets.AWS_REGION }}
+    - name: Push Image
+      run: |
+        docker push \
+        486408064722.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPOSITORY:latest
