@@ -21,7 +21,7 @@ jobs:
     steps:
 
     ################################################
-    # Checkout Code
+    # Checkout Repository
     ################################################
 
     - name: Checkout Repository
@@ -29,13 +29,18 @@ jobs:
 
 
     ################################################
-    # Setup Python for Lint & Test
+    # Setup Python
     ################################################
 
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: "3.10"
+
+
+    ################################################
+    # Install Dependencies
+    ################################################
 
     - name: Install Dependencies
       run: |
@@ -57,7 +62,7 @@ jobs:
 
     - name: Run Tests
       run: |
-        pytest
+        PYTHONPATH=. pytest
 
 
     ################################################
@@ -75,7 +80,7 @@ jobs:
 
 
     ################################################
-    # Terraform Infrastructure Provisioning
+    # Terraform Infrastructure
     ################################################
 
     - name: Setup Terraform
@@ -98,24 +103,20 @@ jobs:
     - name: Set Image Tag
       run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
-
     - name: Login to Amazon ECR
       run: |
         aws ecr get-login-password --region $AWS_REGION | \
         docker login --username AWS \
         --password-stdin $ECR_REGISTRY
 
-
     - name: Build Docker Image
       run: |
         docker build -t $ECR_REPOSITORY:$IMAGE_TAG -f docker/Dockerfile .
-
 
     - name: Tag Docker Image
       run: |
         docker tag $ECR_REPOSITORY:$IMAGE_TAG \
         $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
 
     - name: Push Docker Image
       run: |
