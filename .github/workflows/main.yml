@@ -20,42 +20,44 @@ jobs:
 
     steps:
 
-    - name: Checkout Code
+    # Checkout code
+    - name: Checkout Repository
       uses: actions/checkout@v3
 
+    # Configure AWS credentials
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-    - name: Verify AWS Login
+    - name: Verify AWS Identity
       run: aws sts get-caller-identity
 
-    #################################################
-    # Terraform Setup
-    #################################################
+    ################################################
+    # Terraform Infrastructure Provisioning
+    ################################################
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
 
     - name: Terraform Init
-      run: terraform init
+      run: terraform -chdir=terraform init
 
     - name: Terraform Plan
-      run: terraform plan
+      run: terraform -chdir=terraform plan
 
     - name: Terraform Apply
-      run: terraform apply -auto-approve
+      run: terraform -chdir=terraform apply -auto-approve
 
-    #################################################
-    # Build Docker Image
-    #################################################
+    ################################################
+    # Docker Build
+    ################################################
 
     - name: Set Image Tag
       run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
-    - name: Login to ECR
+    - name: Login to Amazon ECR
       run: |
         aws ecr get-login-password --region $AWS_REGION | \
         docker login --username AWS \
@@ -65,20 +67,20 @@ jobs:
       run: |
         docker build -t $ECR_REPOSITORY:$IMAGE_TAG -f docker/Dockerfile .
 
-    - name: Tag Image
+    - name: Tag Docker Image
       run: |
         docker tag $ECR_REPOSITORY:$IMAGE_TAG \
         $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-    - name: Push Image
+    - name: Push Docker Image
       run: |
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-    #################################################
-    # Deploy to EC2
-    #################################################
+    ################################################
+    # Deploy to EC2 via SSM
+    ################################################
 
-    - name: Deploy via SSM
+    - name: Deploy to EC2
       run: |
         aws ssm send-command \
         --targets "Key=tag:App,Values=tummoc-app" \
