@@ -40,8 +40,8 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
-          #audience: sts.amazonaws.com
           audience: https://github.com/Anandb007
+          #audience: sts.amazonaws.com
 
       # 4️⃣ Test role assumption
       - name: Test AWS Role
