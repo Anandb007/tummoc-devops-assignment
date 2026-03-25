@@ -39,7 +39,7 @@ jobs:
 
     - name: Build Docker Image
       run: |
-        docker build -t $ECR_REPOSITORY:latest .
+        docker build -t $ECR_REPOSITORY:latest -f docker/Dockerfile .
 
     - name: Tag Image
       run: |
