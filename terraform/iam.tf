@@ -66,15 +66,44 @@ resource "aws_iam_role_policy_attachment" "ecr_full_access" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess"
 }
 
-output "iam_role_name" {
+# ✅ Added inline policy for Terraform state access
+resource "aws_iam_role_policy" "terraform_state_access" {
 
-  value = aws_iam_role.tummoc_app_role.name
+  name = "terraform-state-access"
+  role = aws_iam_role.tummoc_app_role.id
 
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket"
+        ]
+        Resource = "arn:aws:s3:::tummoc-terraform-state"
+      },
+
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Resource = "arn:aws:s3:::tummoc-terraform-state/*"
+      }
+
+    ]
+  })
 }
+
+output "iam_role_name" {
+  value = aws_iam_role.tummoc_app_role.name
+}
+
 resource "aws_iam_instance_profile" "tummoc_instance_profile" {
-
   name = "tummoc-instance-profile"
-
   role = aws_iam_role.tummoc_app_role.name
-
 }
