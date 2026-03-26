@@ -254,3 +254,20 @@ max_size = 2
 | Flake8         | Code linting                 |
 | Prometheus     | Metrics monitoring           |
 | Grafana        | Visualization dashboard      |
+
+
+
+
+
+#####################
+Part 2
+####################
+| Skill                    | Rating | Comments / Example Project                                                                                                                                                                                                                                                                                   |
+| ------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CI/CD (Jenkins & GitHub) | 4      | Hands-on experience with Jenkins CI/CD in multiple projects. At Ideyalabs, upgraded Jenkins version and all plugins (migrated from Amazon Linux 2018 to Amazon Linux 2023). Configured multibranch pipelines and branching strategies.                                                                       |
+| Docker                   | 4      | Practical experience with Docker multi-stage builds and Docker Compose. Defined `depends_on` conditions and container start policies to ensure proper container startup.                                                                                                                                     |
+| Kubernetes               | 3–4    | Configured Kubernetes on cloud (EKS). Implemented HPA for pod autoscaling, node autoscaler, readiness and liveness probes, and ingress controllers. Configurations done in Dev environment for the Coyni project.                                                                                            |
+| AWS                      | 4      | Deployed applications on EC2 (monolithic). Configured Secret Manager, KMS, and WAF for security. Managed VPCs, IAM roles, and access privileges. Worked with S3 (transaction file storage), Lambda (to push transaction files to banks), CodeCommit (source control), CloudTrail (API logging), and Route53. |
+| Azure                    | 2      | Currently learning core Azure cloud concepts.                                                                                                                                                                                                                                                                |
+| Monitoring               | 3–4    | For TEU project, captured logs and metrics via CloudWatch and configured CloudWatch Agent for EC2 instances. For Coyni project, set up Grafana and Prometheus for monitoring.Monitored API responses between services to verify response times and debugged logs to identify the root cause of issues.                                                                                                                                |
+
