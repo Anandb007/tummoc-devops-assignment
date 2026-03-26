@@ -1,3 +1,5 @@
+Kindly inform me once testing is completed so that I can shut down the instance due to billing concerns.
+
 # Tummoc DevOps Assignment
 
 ## Overview
