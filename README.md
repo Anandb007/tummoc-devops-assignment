@@ -91,6 +91,16 @@ tummoc-devops/
         └── ci-cd.yml       # GitHub Actions CI/CD pipeline
 ```
 
+URL:
+**Monitoring URLs:**
+http://13.222.177.105:3000/
+username:admin
+paswd: admin123
+
+**App URL:**
+http://3.90.36.164:5000/
+
+
 ---
 
 ## Application
@@ -188,6 +198,7 @@ python app.py
 
 **App URL:**
 App EC2 IP is automatically retrieved via Terraform outputs in the pipeline.
+
 ```
 http://<APP_EC2_PUBLIC_IP>:5000
 ```
