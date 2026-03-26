@@ -21,65 +21,52 @@ jobs:
     steps:
 
     ################################################
-    # Checkout Repository
+    # 1️⃣ Checkout Repository
     ################################################
-
     - name: Checkout Repository
       uses: actions/checkout@v3
 
-
     ################################################
-    # Setup Python
+    # 2️⃣ Setup Python
     ################################################
-
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: "3.10"
 
-
     ################################################
-    # Install Dependencies
+    # 3️⃣ Install Dependencies
     ################################################
-
     - name: Install Dependencies
       run: |
         pip install -r app/requirements.txt
 
-
     ################################################
-    # Lint
+    # 4️⃣ Lint
     ################################################
-
     - name: Run Linter
       run: |
         flake8 app/
 
-
     ################################################
-    # Test
+    # 5️⃣ Test
     ################################################
-
     - name: Run Tests
       run: |
         PYTHONPATH=. pytest
 
-
     ################################################
-    # Configure AWS Credentials
+    # 6️⃣ Configure AWS Credentials
     ################################################
-
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-
     ################################################
-    # Terraform Infrastructure
+    # 7️⃣ Terraform Infrastructure for App
     ################################################
-
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
 
@@ -92,19 +79,16 @@ jobs:
     - name: Terraform Apply
       run: terraform -chdir=terraform apply -auto-approve
 
-
     ################################################
-    # Docker Build
+    # 8️⃣ Docker Build & Push
     ################################################
-
     - name: Set Image Tag
       run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
     - name: Login to Amazon ECR
       run: |
         aws ecr get-login-password --region $AWS_REGION | \
-        docker login --username AWS \
-        --password-stdin $ECR_REGISTRY
+        docker login --username AWS --password-stdin $ECR_REGISTRY
 
     - name: Build Docker Image
       run: |
@@ -119,11 +103,9 @@ jobs:
       run: |
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-
     ################################################
-    # Deploy to EC2 via SSM
+    # 9️⃣ Deploy App to EC2 via SSM
     ################################################
-
     - name: Deploy to EC2
       run: |
         aws ssm send-command \
@@ -131,3 +113,38 @@ jobs:
         --document-name "AWS-RunShellScript" \
         --parameters 'commands=["/home/ec2-user/deploy.sh '${IMAGE_TAG}'"]' \
         --region $AWS_REGION
+
+    ################################################
+    # 10️⃣ Terraform Monitoring (Prometheus + Grafana)
+    ################################################
+    - name: Terraform Init for Monitoring
+      run: terraform -chdir=terraform/monitoring init
+
+    - name: Terraform Plan for Monitoring
+      run: terraform -chdir=terraform/monitoring plan
+
+    - name: Terraform Apply for Monitoring
+      run: terraform -chdir=terraform/monitoring apply -auto-approve
+
+    - name: Output Monitoring EC2 IPs
+      id: monitoring_ip
+      run: |
+        MONITORING_IPS=$(terraform -chdir=terraform/monitoring output -json monitoring_ec2_public_ip | jq -r '.[]')
+        echo "MONITORING_IP=$MONITORING_IPS" >> $GITHUB_ENV
+        echo "Monitoring instance public IP(s): $MONITORING_IPS"
+
+    - name: Show Grafana/Prometheus URLs
+      run: |
+        for ip in $MONITORING_IP; do
+          echo "Grafana URL: http://$ip:3000"
+          echo "Prometheus URL: http://$ip:9090"
+        done
+
+    ################################################
+    # 11️⃣ Output App EC2 IPs (Optional)
+    ################################################
+    - name: Get App EC2 IPs
+      run: |
+        APP_IPS=$(terraform -chdir=terraform output -json app_ec2_public_ips | jq -r '.[]')
+        echo "APP_IPS=$APP_IPS" >> $GITHUB_ENV
+        echo "App EC2 public IP(s): $APP_IPS"
