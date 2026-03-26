@@ -2,21 +2,23 @@
 
 ## Overview
 
-This project demonstrates a **minimal DevOps pipeline implementation** for a sample Flask web application.
-The goal is to show how a manually deployed application can be transformed into an **automated CI/CD-driven infrastructure using DevOps best practices**.
+This project demonstrates a complete **DevOps pipeline** for a sample **Flask web application**. It showcases CI/CD automation, containerization, infrastructure as code, and monitoring.
 
-The solution includes:
+The goal is to transform a manually deployed application into an automated, scalable, and production-ready environment.
 
-* CI/CD pipeline using **GitHub Actions**
-* Application containerization using **Docker**
-* Infrastructure provisioning using **Terraform**
-* Image storage using **Amazon ECR**
-* Deployment to **Amazon EC2 using AWS SSM**
-* Code quality validation using **Linting and Testing**
+**Key Features:**
+
+* CI/CD pipeline using GitHub Actions
+* Application containerization using Docker
+* Infrastructure provisioning using Terraform
+* Docker image storage in Amazon ECR
+* Deployment to Amazon EC2 via AWS SSM
+* Monitoring with Prometheus and Grafana
+* Code quality validation using Linting (flake8) and Unit Tests (pytest)
 
 ---
 
-# Architecture
+## Architecture
 
 ```
 Developer Push Code
@@ -41,433 +43,185 @@ GitHub Actions CI/CD Pipeline
          Docker Container Running Flask App
 ```
 
----
-
-# Project Structure
+### Monitoring Architecture
 
 ```
-tummoc-devops-assignment
+Terraform Monitoring Infrastructure
+        │
+        ├── EC2 Instance for Monitoring
+        ├── Prometheus (Port 9090)
+        └── Grafana (Port 3000)
+```
+
+---
+
+## Project Structure
+
+```
+tummoc-devops/
 │
-├── app
-│   ├── app.py
-│   ├── requirements.txt
+├── app/
+│   ├── app.py               # Flask application
+│   ├── requirements.txt     # Python dependencies
 │   └── __init__.py
 │
-├── docker
-│   └── Dockerfile
+├── docker/
+│   └── Dockerfile           # Container definition
 │
-├── terraform
-│   ├── backend.tf
-│   ├── provider.tf
-│   ├── vpc.tf
-│   ├── security-group.tf
-│   ├── iam.tf
-│   ├── ecr.tf
-│   └── ec2.tf
+├── terraform/
+│   ├── backend.tf           # Remote Terraform state configuration
+│   ├── provider.tf          # AWS provider configuration
+│   ├── vpc.tf               # VPC, Subnet, IGW, Routes
+│   ├── security-group.tf    # Security Group definition
+│   ├── iam.tf               # IAM roles, policies, instance profile
+│   ├── ecr.tf               # ECR repository
+│   ├── ec2.tf               # Application EC2 instance
+│   └── monitoring/          # Monitoring infrastructure (Prometheus & Grafana)
+│       ├── main.tf
+│       ├── variables.tf
+│       └── outputs.tf
 │
-├── tests
-│   └── test_app.py
+├── tests/
+│   └── test_app.py          # Pytest unit test
 │
-├── build_push.sh
+├── build_push.sh            # Optional helper script for local Docker build
 │
-└── .github
-    └── workflows
-        └── ci-cd.yml
+└── .github/
+    └── workflows/
+        └── ci-cd.yml       # GitHub Actions CI/CD pipeline
 ```
 
 ---
 
-# Application
+## Application
 
-Location:
+**Location:** `app/`
+**Files:**
 
-```
-app/
-```
+* `app.py` – Flask web application exposing a root endpoint `/`
+* `requirements.txt` – Python dependencies
 
-### Files
+  * `flask` → Web framework
+  * `flake8` → Linting
+  * `pytest` → Unit testing
 
-**app.py**
-
-Simple Flask web application exposing a root endpoint.
-
-Endpoint:
-
-```
-/
-```
-
-Response:
+**Port:** 5000
+**Response Example:**
 
 ```
 Hello Tummoc DevOps Assignment
 ```
 
-The application runs on:
-
-```
-Port: 5000
-```
-
 ---
 
-**requirements.txt**
+## Docker Configuration
 
-Defines Python dependencies:
+**Location:** `docker/Dockerfile`
 
-```
-flask
-flake8
-pytest
-```
+**Build Stages:**
 
-* `Flask` → Web framework
-* `Flake8` → Code linting
-* `Pytest` → Unit testing
+* **Builder Stage:** Install dependencies in an isolated environment
+* **Runtime Stage:** Copy only required packages and app code
 
----
+**Exposed Port:** 5000
+**Container Start Command:**
 
-# Docker Configuration
-
-Location:
-
-```
-docker/Dockerfile
-```
-
-The application is containerized using **multi-stage Docker builds**.
-
-### Stage 1 – Builder
-
-* Installs Python dependencies
-* Keeps build dependencies isolated
-
-### Stage 2 – Runtime
-
-* Copies only required packages
-* Copies application code
-* Runs Flask application
-
-Exposed Port:
-
-```
-5000
-```
-
-Container startup command:
-
-```
+```bash
 python app.py
 ```
 
 ---
 
-# Infrastructure as Code (Terraform)
+## Infrastructure as Code (Terraform)
 
-Location:
+**Location:** `terraform/`
 
-```
-terraform/
-```
+### Backend
 
-Terraform provisions the AWS infrastructure required to run the application.
+* **File:** `backend.tf`
+* **State Storage:** S3 bucket `tummoc-terraform-state`
+* **State Locking:** DynamoDB table `terraform-locks`
+* **Purpose:** Centralized state management, prevents concurrent runs
 
----
+### AWS Resources Provisioned
 
-## Terraform Backend
-
-File:
-
-```
-backend.tf
-```
-
-Terraform state is stored remotely in:
-
-```
-S3 Bucket: tummoc-terraform-state
-```
-
-State locking is enabled using:
-
-```
-DynamoDB Table: terraform-locks
-```
-
-Benefits:
-
-* Prevents concurrent Terraform runs
-* Centralized state management
+| Resource                    | File              | Description                                          |
+| --------------------------- | ----------------- | ---------------------------------------------------- |
+| VPC, Subnet, IGW, Routes    | vpc.tf            | Network infrastructure                               |
+| Security Group              | security-group.tf | Allows SSH (22) & Flask App (5000)                   |
+| IAM Role & Instance Profile | iam.tf            | Allows EC2 to pull Docker images, run SSM commands   |
+| ECR Repository              | ecr.tf            | Stores Docker images, image scanning enabled         |
+| EC2 Instance                | ec2.tf            | Runs Flask app container, SSM-enabled for deployment |
 
 ---
 
-# AWS Resources Created
+### Monitoring Infrastructure
 
-Terraform provisions the following infrastructure:
-
-### VPC
-
-File:
-
-```
-vpc.tf
-```
-
-Creates:
-
-* VPC
-* Public subnet
-* Internet Gateway
-* Route table
-* Route table association
-
-CIDR Block:
-
-```
-10.0.0.0/16
-```
+* Separate EC2 instance for monitoring
+* **Prometheus:** Port 9090
+* **Grafana:** Port 3000
 
 ---
 
-### Security Group
+## CI/CD Pipeline
 
-File:
+**Location:** `.github/workflows/ci-cd.yml`
+**Triggers:** Push to `master` branch
 
-```
-security-group.tf
-```
+**Pipeline Stages:**
 
-Allows:
-
-| Port | Purpose           |
-| ---- | ----------------- |
-| 22   | SSH access        |
-| 5000 | Flask application |
-
-Outbound traffic is fully allowed.
-
----
-
-### IAM Role
-
-File:
-
-```
-iam.tf
-```
-
-Creates:
-
-* IAM Role
-* Instance Profile
-
-Used by the EC2 instance to access AWS services.
-
-Attached permissions include:
-
-* AmazonEC2ContainerRegistryFullAccess
-* AmazonSSMManagedInstanceCore
-* AmazonS3FullAccess
-* DynamoDB access
-* EC2 access
-
-This allows EC2 to:
-
-* Pull Docker images from ECR
-* Receive SSM commands
-* Access Terraform state if needed
+1. **Checkout Repository:** Clone project code
+2. **Install Dependencies:** `pip install -r app/requirements.txt`
+3. **Lint Stage:** `flake8 app/`
+4. **Test Stage:** `pytest tests/test_app.py`
+5. **Configure AWS Credentials:** GitHub OIDC role assumption
+6. **Terraform Deployment:** `init`, `plan`, `apply` for infrastructure
+7. **Docker Build:** Tag image with commit SHA
+8. **Push Image to ECR:** Repository: `tummoc-app`
+9. **Deploy to EC2 via SSM:** Runs `/home/ec2-user/deploy.sh <IMAGE_TAG>`
+10. **Monitoring Terraform Deployment:** Separate Terraform apply for monitoring EC2
+11. **Output EC2 IPs:** App and Monitoring IPs exported as environment variables
 
 ---
 
-### Amazon ECR
+## Accessing the Application
 
-File:
-
+**App URL:**
+App EC2 IP is automatically retrieved via Terraform outputs in the pipeline.
 ```
-ecr.tf
-```
-
-Creates container registry:
-
-```
-Repository Name: tummoc-app
+http://<APP_EC2_PUBLIC_IP>:5000
 ```
 
-Features enabled:
+**Response:**
 
-* Image scanning
-* Immutable image tags
+```
+Hello Tummoc DevOps Assignment
+```
 
-Docker images are pushed here during CI/CD.
+**Monitoring URLs:**
+
+* **Grafana:** `http://<MONITORING_EC2_PUBLIC_IP>:3000`
+* **Prometheus:** `http://<MONITORING_EC2_PUBLIC_IP>:9090`
 
 ---
 
-### EC2 Instance
+## Deployment Script
 
-File:
+**File:** `deploy.sh`
+**Location:** `/home/ec2-user/` on EC2
 
-```
-ec2.tf
-```
+**Steps:**
 
-Creates an EC2 instance where the application runs.
-
-Important attributes:
-
-```
-Instance Type: t2.micro
-AMI: Amazon Linux
-Subnet: Public subnet
-Security Group: tummoc-sg
-```
-
-The instance is configured with:
-
-```
-SSM agent
-IAM Instance Profile
-```
-
-This allows deployment via **AWS Systems Manager** instead of SSH.
+1. Login to ECR
+2. Pull latest Docker image
+3. Stop running container
+4. Start new container with updated image
 
 ---
 
-# CI/CD Pipeline
+## Auto Scaling Configuration
 
-Location:
-
-```
-.github/workflows/ci-cd.yml
-```
-
-The CI/CD pipeline automatically runs on:
-
-```
-Push to master branch
-```
-
-Pipeline stages:
-
-### 1. Checkout Repository
-
-Downloads project code.
-
----
-
-### 2. Install Dependencies
-
-Installs Python packages from:
-
-```
-app/requirements.txt
-```
-
----
-
-### 3. Lint Stage
-
-Tool used:
-
-```
-flake8
-```
-
-Ensures Python code follows proper formatting and style rules.
-
----
-
-### 4. Test Stage
-
-Tool used:
-
-```
-pytest
-```
-
-Runs automated test:
-
-```
-tests/test_app.py
-```
-
-Test verifies:
-
-```
-HTTP response from "/" endpoint
-```
-
----
-
-### 5. Configure AWS Credentials
-
-GitHub uses **OIDC authentication** to assume an IAM role in AWS.
-
-Secret required:
-
-```
-AWS_ROLE_ARN
-AWS_REGION
-```
-
----
-
-### 6. Terraform Infrastructure Deployment
-
-Commands executed:
-
-```
-terraform init
-terraform plan
-terraform apply
-```
-
-Infrastructure is automatically provisioned or updated.
-
----
-
-### 7. Docker Image Build
-
-Image tag generated from commit SHA.
-
-Example:
-
-```
-tummoc-app:8f1a2c3
-```
-
----
-
-### 8. Push Image to ECR
-
-Docker image pushed to:
-
-```
-486408064722.dkr.ecr.us-east-1.amazonaws.com/tummoc-app
-```
-
----
-
-### 9. Deployment via AWS SSM
-
-Pipeline sends a command to EC2 using:
-
-```
-aws ssm send-command
-```
-
-SSM runs:
-
-```
-/home/ec2-user/deploy.sh <IMAGE_TAG>
-```
-
-The script pulls the new Docker image and restarts the container.
-
----
-
-# Auto Scaling Configuration
-
-Currently:
+**Current:**
 
 ```
 min_size = 0
@@ -475,70 +229,19 @@ desired_capacity = 0
 max_size = 0
 ```
 
-This means no instances will run.
-
-### Recommended Values
-
-Update Terraform to:
+**Recommended for production:**
 
 ```
-min_size         = 1
+min_size = 1
 desired_capacity = 1
-max_size         = 2
-```
-
-This ensures at least **one instance is always running**.
-
----
-
-# How to Access the Application
-
-After deployment:
-
-1. Navigate to the **AWS EC2 Console**
-
-2. Copy the **Public IP address** of the EC2 instance.
-
-Example:
-
-```
-http://<EC2_PUBLIC_IP>:5000
-```
-
-Example:
-
-```
-http://54.xx.xx.xx:5000
-```
-
-You should see:
-
-```
-Hello Tummoc DevOps Assignment
+max_size = 2
 ```
 
 ---
 
-# Deployment Script
+## Technologies Used
 
-EC2 executes:
-
-```
-deploy.sh
-```
-
-The script performs:
-
-1. Login to ECR
-2. Pull latest image
-3. Stop running container
-4. Start new container
-
----
-
-# Technologies Used
-
-| Tool           | Purpose                      |
+| Tool / Service | Purpose                      |
 | -------------- | ---------------------------- |
 | GitHub Actions | CI/CD pipeline               |
 | Docker         | Application containerization |
@@ -549,32 +252,5 @@ The script performs:
 | Flask          | Sample web application       |
 | Pytest         | Unit testing                 |
 | Flake8         | Code linting                 |
-
----
-
-# Future Improvements
-
-Possible enhancements:
-
-* Kubernetes deployment
-* Blue/Green deployments
-* Load balancer integration
-* Prometheus + Grafana monitoring
-* Secure IAM policies using least privilege
-* Docker non-root user
-* GitHub Actions caching for faster builds
-
----
-
-# Conclusion
-
-This project demonstrates how a manually deployed application can be transformed into a **fully automated DevOps workflow** using modern cloud and automation practices.
-
-The pipeline ensures:
-
-* Automated testing
-* Infrastructure as code
-* Containerized deployments
-* Continuous delivery to AWS infrastructure
-
-This provides a **reliable, repeatable, and scalable deployment process**.
+| Prometheus     | Metrics monitoring           |
+| Grafana        | Visualization dashboard      |
