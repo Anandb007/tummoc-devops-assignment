@@ -12,3 +12,15 @@ output "public_subnet_id" {
 output "iam_instance_profile_name" {
   value = aws_iam_instance_profile.tummoc_instance_profile.name
 }
+# Fetch all EC2 instances with tag App=tummoc-app
+data "aws_instances" "tummoc_app_instances" {
+  filter {
+    name   = "tag:App"
+    values = ["tummoc-app"]
+  }
+}
+
+# Output all public IPs
+output "app_ec2_public_ips" {
+  value = data.aws_instances.tummoc_app_instances.public_ips
+}
