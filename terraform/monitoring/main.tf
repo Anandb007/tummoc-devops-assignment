@@ -5,6 +5,13 @@ terraform {
       version = "~> 6.0"
     }
   }
+
+  # Remote backend to persist state and prevent new instance creation
+  backend "s3" {
+    bucket = "tummoc-terraform-state"
+    key    = "monitoring/terraform.tfstate"
+    region = "us-east-1"
+  }
 }
 
 # Get existing infra state
@@ -67,7 +74,7 @@ resource "aws_security_group" "monitoring_sg" {
 # EC2 Instance(s)
 resource "aws_instance" "monitoring" {
   count                      = var.monitoring_instance_count
-  ami                        = "ami-0dc2d3e4c0f9ebd18" # Ubuntu 22.04 LTS (or change)
+  ami                        = "ami-02dfbd4ff395f2a1b" # Updated Ubuntu AMI
   instance_type              = var.monitoring_instance_type
   subnet_id                  = local.monitoring_subnet_id
   vpc_security_group_ids     = [aws_security_group.monitoring_sg.id]
@@ -75,6 +82,7 @@ resource "aws_instance" "monitoring" {
   key_name                   = var.key_name
   iam_instance_profile       = local.iam_profile_name
 
+  # Inline user_data (static)
   user_data = <<-EOF
               #!/bin/bash
               yum update -y
@@ -130,5 +138,14 @@ resource "aws_instance" "monitoring" {
   tags = {
     Name       = "monitoring-ec2"
     Prometheus = "true"
+  }
+
+  # Protect instance from recreation/deletion
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [
+      user_data,
+      tags["Prometheus"]
+    ]
   }
 }
