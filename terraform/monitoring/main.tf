@@ -5,6 +5,12 @@ terraform {
       version = "~> 6.0"
     }
   }
+
+  backend "s3" {
+    bucket = "tummoc-terraform-state"
+    key    = "monitoring/terraform.tfstate"
+    region = "us-east-1"
+  }
 }
 
 # Get existing infra state
@@ -67,7 +73,7 @@ resource "aws_security_group" "monitoring_sg" {
 # EC2 Instance(s)
 resource "aws_instance" "monitoring" {
   count                      = var.monitoring_instance_count
-  ami                        = "ami-0dc2d3e4c0f9ebd18" # Ubuntu 22.04 LTS (or change)
+  ami                        = "ami-0dc2d3e4c0f9ebd18" # Amazon Linux 2 / RHEL compatible
   instance_type              = var.monitoring_instance_type
   subnet_id                  = local.monitoring_subnet_id
   vpc_security_group_ids     = [aws_security_group.monitoring_sg.id]
@@ -75,9 +81,14 @@ resource "aws_instance" "monitoring" {
   key_name                   = var.key_name
   iam_instance_profile       = local.iam_profile_name
 
+  lifecycle {
+    prevent_destroy = true
+  }
+
   user_data = <<-EOF
               #!/bin/bash
               yum update -y
+              yum install -y wget tar
 
               # -------- Prometheus --------
               useradd --no-create-home --shell /bin/false prometheus
