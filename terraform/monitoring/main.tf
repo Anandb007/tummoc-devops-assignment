@@ -13,7 +13,7 @@ terraform {
   }
 }
 
-# Get existing infra state
+# Existing infra remote state
 data "terraform_remote_state" "existing_infra" {
   backend = "s3"
   config = {
@@ -70,10 +70,10 @@ resource "aws_security_group" "monitoring_sg" {
   }
 }
 
-# EC2 Instance(s)
+# EC2 instance
 resource "aws_instance" "monitoring" {
   count                      = var.monitoring_instance_count
-  ami                        = "ami-0dc2d3e4c0f9ebd18" # Amazon Linux 2 / RHEL compatible
+  ami                        = "ami-02dfbd4ff395f2a1b" 
   instance_type              = var.monitoring_instance_type
   subnet_id                  = local.monitoring_subnet_id
   vpc_security_group_ids     = [aws_security_group.monitoring_sg.id]
@@ -90,7 +90,7 @@ resource "aws_instance" "monitoring" {
               yum update -y
               yum install -y wget tar
 
-              # -------- Prometheus --------
+              # Prometheus
               useradd --no-create-home --shell /bin/false prometheus
               cd /tmp
               wget https://github.com/prometheus/prometheus/releases/download/v2.47.0/prometheus-2.47.0.linux-amd64.tar.gz
@@ -132,7 +132,7 @@ resource "aws_instance" "monitoring" {
               systemctl enable prometheus
               systemctl start prometheus
 
-              # -------- Grafana --------
+              # Grafana
               yum install -y https://dl.grafana.com/oss/release/grafana-9.4.7-1.x86_64.rpm
               systemctl enable grafana-server
               systemctl start grafana-server
