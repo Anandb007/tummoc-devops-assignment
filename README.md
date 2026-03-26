@@ -95,7 +95,7 @@ tummoc-devops/
 
 URL:
 **Monitoring URLs:**
-http://13.222.177.105:3000/
+http://54.226.159.165:3000/
 username:admin
 paswd: admin123
 
