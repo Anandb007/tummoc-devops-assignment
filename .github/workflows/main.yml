@@ -77,7 +77,8 @@ jobs:
       run: terraform -chdir=terraform plan
 
     - name: Terraform Apply
-      run: terraform -chdir=terraform apply -auto-approve
+      run: terraform -chdir=terraform apply
+     # run: terraform -chdir=terraform apply -auto-approve
 
     ################################################
     # 8️⃣ Docker Build & Push
