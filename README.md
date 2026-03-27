@@ -100,7 +100,7 @@ username:admin
 paswd: admin123
 
 **App URL:**
-http://3.90.36.164:5000/
+http://54.226.198.11:5000/
 
 
 ---
