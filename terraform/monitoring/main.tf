@@ -142,10 +142,11 @@ resource "aws_instance" "monitoring" {
 
   # Protect instance from recreation/deletion
   lifecycle {
-    prevent_destroy = true
-    ignore_changes  = [
-      user_data,
-      tags["Prometheus"]
-    ]
-  }
+  prevent_destroy = true
+  ignore_changes  = [
+    user_data,
+    tags["Prometheus"],
+    associate_public_ip_address
+  ]
+}
 }
