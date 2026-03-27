@@ -103,6 +103,14 @@ paswd: admin123
 http://54.226.198.11:5000/
 
 
+----
+
+GitHub–AWS Integration using OIDC
+
+The integration between GitHub Actions and AWS is implemented using OpenID Connect (OIDC) to provide secure and credential-less authentication for the CI/CD pipeline.
+
+Instead of storing long-lived AWS access keys in GitHub, the pipeline uses OIDC-based identity federation to securely authenticate with AWS. During workflow execution, GitHub Actions requests a temporary identity token which is validated by AWS. Once verified, AWS allows the workflow to assume a designated IAM role, granting the pipeline temporary permissions required to perform operations such as infrastructure provisioning, container image management, and application deployment.
+
 ---
 
 ## Application
