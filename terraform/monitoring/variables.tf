@@ -6,7 +6,7 @@ variable "monitoring_instance_type" {
 variable "monitoring_instance_count" {
   description = "Number of monitoring instances"
   type        = number
-  default     = 0   # Change this to 1,2,... to spin up instances
+  default     = 0   # Change this to 1,2,... to spin up instance
 }
 
 variable "key_name" {
