@@ -125,7 +125,7 @@ resource "aws_autoscaling_group" "tummoc_asg" {
 
   min_size         = 0
   max_size         = 0
-  desired_capacity = 1
+  desired_capacity = 0
 
   health_check_type         = "EC2"
   health_check_grace_period = 300
